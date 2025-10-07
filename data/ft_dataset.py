@@ -3,8 +3,7 @@ import librosa
 import numpy as np
 import random
 import os
-from torch.utils.data import DataLoader
-from modules.audio import mel_spectrogram
+from seed.modules.audio import mel_spectrogram
 
 
 duration_setting = {

@@ -1,7 +1,4 @@
-import shutil
 import warnings
-import argparse
-import torch
 import os
 import os.path as osp
 import yaml
@@ -9,15 +6,12 @@ import yaml
 warnings.simplefilter("ignore")
 
 # load packages
-import random
 
 from tqdm import tqdm
-from modules.commons import *
-import time
+from seed.modules.commons import *
 
 import torchaudio
 import librosa
-import torchaudio.compliance.kaldi as kaldi
 
 from hf_utils import load_custom_model_from_hf
 from resemblyzer import preprocess_wav, VoiceEncoder
@@ -85,7 +79,7 @@ def load_models(args):
     model.cfm.estimator.setup_caches(max_batch_size=1, max_seq_length=8192)
 
     # Load additional modules
-    from modules.campplus.DTDNN import CAMPPlus
+    from seed.modules.campplus.DTDNN import CAMPPlus
 
     campplus_ckpt_path = load_custom_model_from_hf(
         "funasr/campplus", "campplus_cn_common.bin", config_filename=None
@@ -98,7 +92,7 @@ def load_models(args):
     vocoder_type = model_params.vocoder.type
 
     if vocoder_type == 'bigvgan':
-        from modules.bigvgan import bigvgan
+        from seed.modules.bigvgan import bigvgan
         bigvgan_name = model_params.vocoder.name
         bigvgan_model = bigvgan.BigVGAN.from_pretrained(bigvgan_name, use_cuda_kernel=False)
         # remove weight norm in the model and set to eval mode
@@ -106,8 +100,8 @@ def load_models(args):
         bigvgan_model = bigvgan_model.eval().to(device)
         vocoder_fn = bigvgan_model
     elif vocoder_type == 'hifigan':
-        from modules.hifigan.generator import HiFTGenerator
-        from modules.hifigan.f0_predictor import ConvRNNF0Predictor
+        from seed.modules.hifigan.generator import HiFTGenerator
+        from seed.modules.hifigan.f0_predictor import ConvRNNF0Predictor
         hift_config = yaml.safe_load(open('configs/hifigan.yml', 'r'))
         hift_gen = HiFTGenerator(**hift_config['hift'], f0_predictor=ConvRNNF0Predictor(**hift_config['f0_predictor']))
         hift_gen.load_state_dict(torch.load(hift_config['pretrained_model_path'], map_location='cpu'))
@@ -227,7 +221,7 @@ def load_models(args):
         "fmax": None if config['preprocess_params']['spect_params'].get('fmax', "None") == "None" else 8000,
         "center": False
     }
-    from modules.audio import mel_spectrogram
+    from seed.modules.audio import mel_spectrogram
 
     to_mel = lambda x: mel_spectrogram(x, **mel_fn_args)
 

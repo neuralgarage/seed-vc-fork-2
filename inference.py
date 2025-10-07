@@ -1,25 +1,19 @@
 import os
 
-import numpy as np
-
 os.environ['HF_HUB_CACHE'] = './checkpoints/hf_cache'
-import shutil
 import warnings
-import argparse
-import torch
 import yaml
 
 warnings.simplefilter('ignore')
 
 # load packages
-import random
 
-from modules.commons import *
+from seed.modules.commons import *
 import time
 
 import torchaudio
 import librosa
-from modules.commons import str2bool
+from seed.modules.commons import str2bool
 
 from hf_utils import load_custom_model_from_hf
 
@@ -55,7 +49,7 @@ def load_models(args):
             dit_checkpoint_path = args.checkpoint
             dit_config_path = args.config
         # f0 extractor
-        from modules.rmvpe import RMVPE
+        from seed.modules.rmvpe import RMVPE
 
         model_path = load_custom_model_from_hf("lj1995/VoiceConversionWebUI", "rmvpe.pt", None)
         f0_extractor = RMVPE(model_path, is_half=False, device=device)
@@ -83,7 +77,7 @@ def load_models(args):
     model.cfm.estimator.setup_caches(max_batch_size=1, max_seq_length=8192)
 
     # Load additional modules
-    from modules.campplus.DTDNN import CAMPPlus
+    from seed.modules.campplus.DTDNN import CAMPPlus
 
     campplus_ckpt_path = load_custom_model_from_hf(
         "funasr/campplus", "campplus_cn_common.bin", config_filename=None
@@ -96,7 +90,7 @@ def load_models(args):
     vocoder_type = model_params.vocoder.type
 
     if vocoder_type == 'bigvgan':
-        from modules.bigvgan import bigvgan
+        from seed.modules.bigvgan import bigvgan
         bigvgan_name = model_params.vocoder.name
         bigvgan_model = bigvgan.BigVGAN.from_pretrained(bigvgan_name, use_cuda_kernel=False)
         # remove weight norm in the model and set to eval mode
@@ -104,8 +98,8 @@ def load_models(args):
         bigvgan_model = bigvgan_model.eval().to(device)
         vocoder_fn = bigvgan_model
     elif vocoder_type == 'hifigan':
-        from modules.hifigan.generator import HiFTGenerator
-        from modules.hifigan.f0_predictor import ConvRNNF0Predictor
+        from seed.modules.hifigan.generator import HiFTGenerator
+        from seed.modules.hifigan.f0_predictor import ConvRNNF0Predictor
         hift_config = yaml.safe_load(open('configs/hifigan.yml', 'r'))
         hift_gen = HiFTGenerator(**hift_config['hift'], f0_predictor=ConvRNNF0Predictor(**hift_config['f0_predictor']))
         hift_path = load_custom_model_from_hf("FunAudioLLM/CosyVoice-300M", 'hift.pt', None)
@@ -226,7 +220,7 @@ def load_models(args):
         "fmax": None if config['preprocess_params']['spect_params'].get('fmax', "None") == "None" else 8000,
         "center": False
     }
-    from modules.audio import mel_spectrogram
+    from seed.modules.audio import mel_spectrogram
 
     to_mel = lambda x: mel_spectrogram(x, **mel_fn_args)
 
@@ -368,13 +362,21 @@ def main(args):
         chunk_cond = cond[:, processed_frames:processed_frames + max_source_window]
         is_last_chunk = processed_frames + max_source_window >= cond.size(1)
         cat_condition = torch.cat([prompt_condition, chunk_cond], dim=1)
-        with torch.autocast(device_type=device.type, dtype=torch.float16 if fp16 else torch.float32):
-            # Voice Conversion
+        print(device.type)
+        if device.type == 'mps':
             vc_target = model.cfm.inference(cat_condition,
-                                                       torch.LongTensor([cat_condition.size(1)]).to(mel2.device),
-                                                       mel2, style2, None, diffusion_steps,
-                                                       inference_cfg_rate=inference_cfg_rate)
+                                            torch.LongTensor([cat_condition.size(1)]).to(mel2.device),
+                                            mel2, style2, None, diffusion_steps,
+                                            inference_cfg_rate=inference_cfg_rate)
             vc_target = vc_target[:, :, mel2.size(-1):]
+        else:
+            with torch.autocast(device_type=device.type, dtype=torch.float16 if fp16 else torch.float32):
+                # Voice Conversion
+                vc_target = model.cfm.inference(cat_condition,
+                                                           torch.LongTensor([cat_condition.size(1)]).to(mel2.device),
+                                                           mel2, style2, None, diffusion_steps,
+                                                           inference_cfg_rate=inference_cfg_rate)
+                vc_target = vc_target[:, :, mel2.size(-1):]
         vc_wave = vocoder_fn(vc_target.float()).squeeze()
         vc_wave = vc_wave[None, :]
         if processed_frames == 0:
