@@ -23,14 +23,15 @@ else:
     device = torch.device("cpu")
 
 fp16 = False
-def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = None, fp16_val:bool = False):
+def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = None, fp16_val:bool = False, cache_dir=""):
     global fp16
     fp16 = fp16_val
     if not f0_condition:
         if checkpoint is None:
             dit_checkpoint_path, dit_config_path = load_custom_model_from_hf("Plachta/Seed-VC",
                                                                             "DiT_seed_v2_uvit_whisper_small_wavenet_bigvgan_pruned.pth",
-                                                                            "config_dit_mel_seed_uvit_whisper_small_wavenet.yml")
+                                                                            "config_dit_mel_seed_uvit_whisper_small_wavenet.yml",
+                                                                             cache_dir=cache_dir)
         else:
             dit_checkpoint_path = checkpoint
             dit_config_path = config
@@ -39,14 +40,15 @@ def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = N
         if checkpoint is None:
             dit_checkpoint_path, dit_config_path = load_custom_model_from_hf("Plachta/Seed-VC",
                                                                              "DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ft_ema_v2.pth",
-                                                                             "config_dit_mel_seed_uvit_whisper_base_f0_44k.yml")
+                                                                             "config_dit_mel_seed_uvit_whisper_base_f0_44k.yml",
+                                                                             cache_dir=cache_dir)
         else:
             dit_checkpoint_path = checkpoint
             dit_config_path = config
         # f0 extractor
         from seed.modules.rmvpe import RMVPE
 
-        model_path = load_custom_model_from_hf("lj1995/VoiceConversionWebUI", "rmvpe.pt", None)
+        model_path = load_custom_model_from_hf("lj1995/VoiceConversionWebUI", "rmvpe.pt", None, cache_dir=cache_dir)
         f0_extractor = RMVPE(model_path, is_half=False, device=device)
         f0_fn = f0_extractor.infer_from_audio
 
@@ -246,9 +248,9 @@ def crossfade(chunk1, chunk2, overlap):
 def clone_voice(src_voice:str, ref_voice:str, output_dir, diffusion_steps:int = 30,
                 length_adjust:float = 1.0, inference_cfg_rate:float = 0.7,
                 f0_condition:bool = False, auto_f0_adjust:bool = False, semi_tone_shift:int = 0,
-                checkpoint:str = None, config:str = None, fp16:bool = False):
+                checkpoint:str = None, config:str = None, fp16:bool = False, cache_dir:str = ""):
     model, semantic_fn, f0_fn, vocoder_fn, campplus_model, mel_fn, mel_fn_args = load_models(f0_condition=f0_condition, checkpoint=checkpoint,
-                                                                                             config=config, fp16_val=fp16)
+                                                                                             config=config, fp16_val=fp16, cache_dir=cache_dir)
     sr = mel_fn_args['sampling_rate']
     f0_condition = f0_condition
     auto_f0_adjust = auto_f0_adjust
