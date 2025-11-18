@@ -13,7 +13,7 @@ warnings.simplefilter('ignore')
 
 from seed.modules.commons import *
 
-from hf_utils import load_custom_model_from_hf
+from seed.hf_utils import load_custom_model_from_hf
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
