@@ -77,7 +77,8 @@ def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = N
     from seed.modules.campplus.DTDNN import CAMPPlus
 
     campplus_ckpt_path = load_custom_model_from_hf(
-        "funasr/campplus", "campplus_cn_common.bin", config_filename=None
+        "funasr/campplus", "campplus_cn_common.bin", config_filename=None,
+        cache_dir=cache_dir
     )
     campplus_model = CAMPPlus(feat_dim=80, embedding_size=192)
     campplus_model.load_state_dict(torch.load(campplus_ckpt_path, map_location="cpu"))
