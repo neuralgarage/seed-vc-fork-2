@@ -90,7 +90,7 @@ def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = N
     if vocoder_type == 'bigvgan':
         from seed.modules.bigvgan import bigvgan
         bigvgan_name = model_params.vocoder.name
-        bigvgan_model = bigvgan.BigVGAN.from_pretrained(bigvgan_name, use_cuda_kernel=False)
+        bigvgan_model = bigvgan.BigVGAN.from_pretrained(bigvgan_name, use_cuda_kernel=False, cache_dir=cache_dir)
         # remove weight norm in the model and set to eval mode
         bigvgan_model.remove_weight_norm()
         bigvgan_model = bigvgan_model.eval().to(device)
@@ -100,7 +100,7 @@ def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = N
         from seed.modules.hifigan.f0_predictor import ConvRNNF0Predictor
         hift_config = yaml.safe_load(open('configs/hifigan.yml', 'r'))
         hift_gen = HiFTGenerator(**hift_config['hift'], f0_predictor=ConvRNNF0Predictor(**hift_config['f0_predictor']))
-        hift_path = load_custom_model_from_hf("FunAudioLLM/CosyVoice-300M", 'hift.pt', None)
+        hift_path = load_custom_model_from_hf("FunAudioLLM/CosyVoice-300M", 'hift.pt', None, cache_dir=cache_dir)
         hift_gen.load_state_dict(torch.load(hift_path, map_location='cpu'))
         hift_gen.eval()
         hift_gen.to(device)
@@ -126,9 +126,9 @@ def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = N
         # whisper
         from transformers import AutoFeatureExtractor, WhisperModel
         whisper_name = model_params.speech_tokenizer.name
-        whisper_model = WhisperModel.from_pretrained(whisper_name, torch_dtype=torch.float16).to(device)
+        whisper_model = WhisperModel.from_pretrained(whisper_name, torch_dtype=torch.float16, cache_dir=cache_dir).to(device)
         del whisper_model.decoder
-        whisper_feature_extractor = AutoFeatureExtractor.from_pretrained(whisper_name)
+        whisper_feature_extractor = AutoFeatureExtractor.from_pretrained(whisper_name, cache_dir=cache_dir)
 
         def semantic_fn(waves_16k):
             ori_inputs = whisper_feature_extractor([waves_16k.squeeze(0).cpu().numpy()],
@@ -153,8 +153,8 @@ def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = N
             HubertModel,
         )
         hubert_model_name = config['model_params']['speech_tokenizer']['name']
-        hubert_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model_name)
-        hubert_model = HubertModel.from_pretrained(hubert_model_name)
+        hubert_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model_name, cache_dir=cache_dir)
+        hubert_model = HubertModel.from_pretrained(hubert_model_name, cache_dir=cache_dir)
         hubert_model = hubert_model.to(device)
         hubert_model = hubert_model.eval()
         hubert_model = hubert_model.half()
@@ -182,8 +182,8 @@ def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = N
         )
         model_name = config['model_params']['speech_tokenizer']['name']
         output_layer = config['model_params']['speech_tokenizer']['output_layer']
-        wav2vec_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
-        wav2vec_model = Wav2Vec2Model.from_pretrained(model_name)
+        wav2vec_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name, cache_dir=cache_dir)
+        wav2vec_model = Wav2Vec2Model.from_pretrained(model_name, cache_dir=cache_dir)
         wav2vec_model.encoder.layers = wav2vec_model.encoder.layers[:output_layer]
         wav2vec_model = wav2vec_model.to(device)
         wav2vec_model = wav2vec_model.eval()
