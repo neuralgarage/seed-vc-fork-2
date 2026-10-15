@@ -1,4 +1,5 @@
 import time
+from functools import lru_cache
 import librosa
 import torch
 import torchaudio
@@ -23,6 +24,8 @@ else:
     device = torch.device("cpu")
 
 fp16 = False
+# Keep the loaded models in memory so repeated clone_voice calls in a process skip the reload
+@lru_cache(maxsize=1)
 def load_models(f0_condition:bool = False, checkpoint:str = None, config:str = None, fp16_val:bool = False, cache_dir=""):
     global fp16
     fp16 = fp16_val
